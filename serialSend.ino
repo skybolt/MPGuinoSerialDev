@@ -17,7 +17,7 @@ simpletx(intformat( (parms[tankSizeIdx])));
 //simpletx("1600");
 //}
 simpletx("],\"measures\":[");
-simpletx(format( (parms[tankSizeIdx] - fuelReserveGalIdx) - tank.gallons() )  );
+simpletx(format(MIN(0, (parms[tankSizeIdx] - fuelReserveGalIdx) - tank.gallons() ))  ); // (13.8 - 2) = 11.8 - 11.9 = -1 error, unsinged
 simpletx(",");
 simpletx(format (parms[tankSizeIdx] - tank.gallons())   );
 simpletx("],\"markers\":[");

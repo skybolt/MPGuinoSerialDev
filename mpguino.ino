@@ -26,7 +26,7 @@ unsigned long LASTLOOPLENGTH = 0;
 static boolean  setupRan = 0;  
 static unsigned long barTimer = 0;
 
-unsigned long fuelReserveGalIdx = 3000; 
+unsigned long fuelReserveGalIdx = 2200; 
 
 
 //for display computing
