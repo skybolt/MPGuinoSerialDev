@@ -371,7 +371,7 @@ void setup (void) {
    unsigned char x = 0;
    //unsigned char dgIdx = 0;
    CLOCK = 0;
-   SCREEN = 0;
+   SCREEN = 5;
    HOLD_DISPLAY = 0;
 
    #if (CFG_IDLE_MESSAGE != 0)
@@ -1384,6 +1384,7 @@ char *format(unsigned long num) {
    fBuff[6] = 0;
    return fBuff;
 } 
+
 
 //--------------------------------------------------------
 char* intformat(unsigned long num, byte numlength=6)
