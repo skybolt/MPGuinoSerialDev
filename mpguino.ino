@@ -2,13 +2,11 @@
 // webpage - htts://mpguino.wiseman.ee
 
 #include "mpguino_conf.h"
-#include <avr/pgmspace.h>
+//#include <avr/pgmspace.h>
 #include <EEPROM.h>
 #include "mpguino.h"
 #include "lcd.h"
 #include "serialSend.h"
-
-#include "memdebug.h"
 
 #if( SLEEP_CFG == 3 ) 
 #include <avr/sleep.h>
@@ -118,15 +116,22 @@ void enableLButton(){PCMSK1 |= (1 << PCINT11);}
 void enableMButton(){PCMSK1 |= (1 << PCINT12);}
 void enableRButton(){PCMSK1 |= (1 << PCINT13);}
 void enableSButton(){PCMSK1 |= (1 << PCINT9);}
+#if MEM_CUT
+void enableSButton(){PCMSK1 |= (1 << PCINT9);}
+#endif
 //array of the event functions
+#if MEM_CUT
 pFunc eventFuncs[] ={enableVSS, enableLButton,enableMButton,enableRButton,enableSButton};
+#else
+pFunc eventFuncs[] ={enableVSS, enableLButton,enableMButton,enableRButton};
+#endif
 #define eventFuncSize (sizeof(eventFuncs)/sizeof(pFunc)) 
 //define the event IDs
 #define enableVSSID 0
 #define enableLButtonID 1
 #define enableMButtonID 2
 #define enableRButtonID 3
-#if UNO_MOFDIFICATIONS
+#if UNO_MODIFICATIONS
 #define enableSButtonID 4
 #endif
 
@@ -317,9 +322,20 @@ ISR(PCINT1_vect) {
 pFunc displayFuncs[] ={
   
 #if MEMORY_REDUCDER
-doDisplaySystemInfo, 
-#else //else MEMORY_REDUCDER
+//   doDisplaySerialOnly, //0
+   doDisplaySystemInfo, 
+   doDisplayCarSensors,      //7 
+   doDisplayEOCIdleData,     //5  
+#else //else not MEMORY_REDUCDER
 
+#if MEM_CUT
+   doDisplaySerialOnly, //0
+   doDisplayInstantCurrent, //1
+   doDisplayInstantTank,  //2
+   doDisplayCurrentTripData, //3 
+   doDisplaySystemInfo,      //6  
+   doDisplayCarSensors,      //7 
+#else
    doDisplaySerialOnly, //0
    doDisplayInstantCurrent, //1
    doDisplayInstantTank,  //2
@@ -327,10 +343,12 @@ doDisplaySystemInfo,
    doDisplayTankTripData,    //4  
    doDisplayEOCIdleData,     //5  
    doDisplaySystemInfo,      //6  
-   doDisplayCarSensors,      //7  
+   doDisplayCarSensors,      //7
+ #endif //endif MEM_CUT
+#endif //endif of MEMORY_REDUCDER
 
    #if (DRAGRACE_DISPLAY_CFG)
-   doDisplayDragRace,        //8  
+   doDisplayDragRace,        //8 
    #endif 
 
    #if (BARGRAPH_DISPLAY_CFG == 1)
@@ -342,9 +360,6 @@ doDisplaySystemInfo,
    doDisplayBigCurrent,     //11
    doDisplayBigSpeed,       //12
    #endif
-   
-#endif //endif of MEMORY_REDUCDER
-
 };      
 
 #define displayFuncSize (sizeof(displayFuncs)/sizeof(pFunc)) //array size      
@@ -371,7 +386,7 @@ void setup (void) {
    unsigned char x = 0;
    //unsigned char dgIdx = 0;
    CLOCK = 0;
-   SCREEN = 5;
+   SCREEN = 0;
    HOLD_DISPLAY = 0;
 
    #if (CFG_IDLE_MESSAGE != 0)
@@ -381,17 +396,22 @@ void setup (void) {
    init2();
    newRun = load();//load the default parameters
    serialOnlyScreenIdx = x; 
-   #if MEMORY_REDUCDER
+   #if MEM_CUT
    displayFuncNames[x++]=  PSTR("CPU Monitor");
    displayFuncNames[x++]=  PSTR("Current Trip");
    displayFuncNames[x++]=  PSTR("Tank Data"); 
    #else
+   #if MEMORY_REDUCDER
+   //displayFuncNames[x++]=  PSTR("Serial Only"); 
+   displayFuncNames[x++]=  PSTR("CPU Monitor");
+   displayFuncNames[x++]=  PSTR("Car Sensors");  
+   #elif
    displayFuncNames[x++]=  PSTR("Serial Only"); 
    displayFuncNames[x++]=  PSTR("Instant/Current"); 
    displayFuncNames[x++]=  PSTR("Instant/Tank");
    displayFuncNames[x++]=  PSTR("Current Trip");
    displayFuncNames[x++]=  PSTR("Tank Data"); 
-   
+   #endif
    #if (CFG_UNITS == 2)
    displayFuncNames[x++]=  PSTR("EOC km/Idle Litr");
    #else
@@ -417,7 +437,7 @@ void setup (void) {
    displayFuncNames[x++]=  PSTR("Big Current");  
    #endif
 
-#endif //end of IF MEMORY_REDUCDER
+#endif //end of IF MEM_CUT 1
    
    pinMode(BrightnessPin,OUTPUT);      
    analogWrite(BrightnessPin,brightness[brightnessIdx]);      
@@ -499,12 +519,18 @@ void rightButton(void) {
 
 void middleButton(void) {
   
+  
+         #if MEMORY_REDUCDER
+         #if (DRAGRACE_DISPLAY_CFG)
+            myDrag.reset();   
+         #endif //endif DRAGRACE_DISPLAY_CFG
+         #else  //else MEMORY_REDUCDER
          #if (DRAGRACE_DISPLAY_CFG) //what to do if on drag screen
         if(SCREEN == dragScreenIdx || SCREEN == serialOnlyScreenIdx) {
             myDrag.reset();   
          } else 
-         #endif
-         
+         #endif //end dragrace_display_cfg
+         #endif //end memory reducder
         {
          brightnessIdx = (brightnessIdx + 1) % brightnessLength;
          if(brightnessIdx==0) { //just in case when display gets corrupted, you can cycle to brightness 0 and display will be initialized again
@@ -666,7 +692,7 @@ void loop (void) {
             LCD::LcdCommandWrite(LCD_DisplayOnOffCtrl);  //LCD off unless explicitly told ON
             #endif
             //lastActivity = nil;
-            #if SLEEP_CFG != 0
+            #if (SLEEP_CFG & Sleep_lcd)
             system_sleep(); //system PowerDown mode to save power
             #endif
 
@@ -1037,7 +1063,7 @@ LASTLOOPLENGTH = elapsedMicroseconds(loopStart);
             LCD::LcdCommandWrite(LCD_DisplayOnOffCtrl);  //LCD off unless explicitly told ON
             #endif
             //lastActivity = nil;
-            #if SLEEP_CFG != 0
+            #if (SLEEP_CFG & Sleep_lcd)
             system_sleep(); //system PowerDown mode to save power
             #endif
 
@@ -1433,9 +1459,8 @@ char *getStr(prog_char * str) {
    return mBuff;
 }
 
-#if MEMORY_REDUCER == 0
-
 #if (OUTSIDE_TEMP_CFG == 1) 
+
 
 void doDisplayCustom() {
   
@@ -1463,6 +1488,7 @@ void doDisplayCustom() {
 }      
 #endif
 
+
 void doDisplayCarSensors() {
   unsigned long mod = 100000;
   if (instantrpm() < 500) {
@@ -1485,7 +1511,7 @@ void doDisplayCarSensors() {
                     "gh",0,instantgph(),   "rpm",1,instantrpm());
    #endif
 #endif
-}
+} 
 
 #if(DRAGRACE_DISPLAY_CFG)
 void doDisplayDragRace() {
@@ -1613,8 +1639,7 @@ void doDisplayCurrentTripData(void) {
 void doDisplayTankTripData(void) {
    /* display tank trip formatted data */
    tDisplay(&tank);
-}      
-#endif //end MEMORY_REDUCER
+} 
 
 void doDisplaySerialOnly() {  //empty screen
 HOLD_DISPLAY=0;
@@ -1635,7 +1660,6 @@ void doDisplaySystemInfo(void) {
 
    signed long mem = memoryTest();      
    mem*=1000;
-   signed long mem2 = getFreeMemory();
    strcpy(&LCDBUF2[0], "Free mem: ");
    strcpy(&LCDBUF2[10],  intformat(mem,6));
    //strcpy(&LCDBUF2[10],  format(current.time()*100));
@@ -2160,7 +2184,6 @@ void Trip::update(Trip t) {
       }
    }      
 }   
- 
 
 #if (CFG_BIGFONT_TYPE > 0)
 void bigNum (unsigned long t, char * txt1, char * txt2){      
@@ -2398,7 +2421,6 @@ boolean editParm(unsigned char parmIdx){
             if(p==12)p=0;
         }
         else if(MiddleButtonPressed) {
-
              if(p==10){  //ok selected
                 parms[parmIdx]=rformat(fmtv);
                 LCD::LcdCommandWrite(B00001100); //cursor off
@@ -2580,12 +2602,14 @@ void Drag::reset()
 if (waiting_start || running) {  
   LCD::print(getStr(PSTR("Drag Cancelled"))); 
   Drag::finish();
+  //make LED red
 }
 
 else {
   LCD::print(getStr(PSTR("Drag Ready")));
    waiting_start = true;
    running = false;
+   //make LED green
 }
   time_400m_ms = 0;
   vss_pulses = 0;
@@ -2605,6 +2629,7 @@ void Drag::start()
    time_millis = millis2();
    waiting_start = false;
    running = true;
+   //make LED blink yellow
 }
 
 void Drag::update()
@@ -2660,7 +2685,10 @@ unsigned long Drag::distance()
 
 unsigned long Drag::time100kmh()
 {
-   return time_100kmh_ms;
+   if (waiting_start) {
+     return 99999000;
+   }
+     return time_100kmh_ms;
 }
 
 unsigned long Drag::trapspeed()

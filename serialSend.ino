@@ -1,4 +1,8 @@
+
+
+
 void sendJsonGraph() {
+  
   simpletx("\n");
   
 //first line, fuel use
@@ -6,9 +10,9 @@ void sendJsonGraph() {
 simpletx("["); 
 
 simpletx("{\"title\":\"fuel used");
-simpletx(format ( tank.gallons() )); //tank fuel used
+simpletx(format ( current.gallons() )); //tank fuel used
 simpletx("/"); 
-simpletx(format ( current.gallons() )); //trip fuel used
+simpletx(format ( tank.gallons() )); //trip fuel used
 simpletx("\",\"subtitle\":\"");
 if (  ((parms[tankSizeIdx] - fuelReserveGalIdx) - tank.gallons() ) > parms[tankSizeIdx]) {
   simpletx("fumes");
@@ -23,6 +27,10 @@ if (  (parms[tankSizeIdx] - tank.gallons() ) < fuelReserveGalIdx) {
   simpletx(format(fuelReserveGalIdx)); 
   }
 simpletx(" e-reserve");
+simpletx(format(tank.idleGallons()));
+simpletx(" ga used@idle, "); 
+simpletx(format(tank.eocMiles()));
+simpletx(" mi fuel cut"); 
 simpletx("\",\"ranges\":[");
 simpletx(format (parms[tankSizeIdx]-fuelReserveGalIdx));
 simpletx(","); 
@@ -53,11 +61,16 @@ simpletx("]},");
 
 simpletx("");
 
-simpletx("{\"title\":\"tank distance");
-simpletx(intformat(getRNG() - getDTE()));  //shorter line initially, miles traveled raw, flips to longer line
-simpletx("\",\"subtitle\":\"range: ");
+simpletx("{\"title\":\"distance");
+
+simpletx(format ( current.miles() )); //tank fuel used
+simpletx("/"); 
+simpletx(format ( tank.miles() )); //trip fuel used
+
+//simpletx(intformat(getRNG() - getDTE()));  //shorter line initially, miles traveled raw, flips to longer line
+simpletx("\",\"subtitle\":\"");
 simpletx(intformat(getDTB()));
-simpletx("mi,"); 
+simpletx("mi to E,"); 
 if (    ((parms[tankSizeIdx] - fuelReserveGalIdx) - tank.gallons() ) > parms[tankSizeIdx] ) {  //this line shows reserve miles max
 simpletx(intformat(tank.mpg() * (parms[tankSizeIdx] - tank.gallons()) / 1000)    );  //longer line initially, flips to shorter, miles traveled + mpg*reserve; counts up
 } else {  //this line shows miles until dry
@@ -69,6 +82,7 @@ simpletx(intformat(getBRNG()));
 simpletx("mi safe range,"); 
 simpletx(intformat(getRNG()));
 simpletx("mi dry range");
+
 simpletx("\",\"ranges\":[");
 //simpletx(",");
 
@@ -90,24 +104,35 @@ simpletx("]},");
 //third line, mpg
 
 simpletx("");
-simpletx("{\"title\":\"fuel economy\",\"subtitle\":\"");
+simpletx("{\"title\":\"fuel economy");
+//simpletx("{\"title\":\"fuel economy\",\"subtitle\":\"");
 simpletx(format(MIN(40000,current.mpg() )));
-simpletx(" trip,"); 
+simpletx("/"); 
 simpletx(format(MIN(40000,tank.mpg() )));
-simpletx(" tank,"); 
-simpletx(format(tank.idleGallons()));
-simpletx(" ga@idle, "); 
-simpletx(format(tank.eocMiles()));
-simpletx(" mi engine-off cruise"); 
-simpletx("\",\"ranges\":[18,24,40],\"measures\":[");
+simpletx("\",\"subtitle\":\"drag stats: 0 -");
+simpletx(intformat(parms[dragSpeed] * 1000));
+simpletx(":");
+simpletx(format(myDrag.time100kmh() ));
+simpletx(",");
+simpletx(format(myDrag.time() )); 
+simpletx(" to "); 
+simpletx(intformat(parms[dragDistance] * 1000));
+simpletx("ft @");
+simpletx(format(myDrag.trapspeed() )); 
+
+simpletx("mph\",\"ranges\":[18,24,40],\"measures\":[");
 simpletx(format(MIN(40000,current.mpg() )));
 simpletx(",");
 simpletx(format(MIN(40000,tank.mpg() )));
 
 simpletx("],\"markers\":[");
 simpletx(format(MIN(40000,instant.mpg() )));
-simpletx("]}");
+simpletx("]}"); 
+
+//next line ends JSON payload
 simpletx("]");
 
+//sends CR to trigger read on python.script
 simpletx("\r");
+
 }
